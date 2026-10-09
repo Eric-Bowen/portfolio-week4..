@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projects | Bowen Zhang</title>
+  <meta name="description" content="A selection of projects by Bowen Zhang — small, friendly tools and apps built with care." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- ===== Navbar ===== -->
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a href="index.html" class="brand">
+        <span class="brand-dot"></span>
+        Bowen Zhang
+      </a>
+      <button class="nav-toggle" aria-label="Toggle menu" onclick="toggleNav()">&#9776;</button>
+      <ul class="nav-links" id="navLinks">
+        <a href="index.html">Home</a>
+        <a href="resume.html">Resume</a>
+        <a href="projects.html" class="active">Projects</a>
+        <a href="contact.html">Contact Me</a>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ===== Page header ===== -->
+  <header class="page-header">
+    <div class="container">
+      <h1>Projects</h1>
+      <p>A handful of things I've built for fun, for learning, and for real people.</p>
+    </div>
+  </header>
+
+  <!-- ===== To-Do List App ===== -->
+  <section class="section todo-section" id="todo-app">
+    <div class="container">
+      <h2 class="section-title">To-Do List</h2>
+      <p class="section-subtitle">Pick a date on the calendar, jot a task, and check things off.</p>
+
+      <div class="todo-app">
+        <div class="todo-calendar" role="group" aria-label="Date picker calendar">
+          <div class="cal-header">
+            <button id="calPrev" type="button" class="cal-nav" aria-label="Previous month">&larr;</button>
+            <span id="calMonth" class="cal-month" aria-live="polite"></span>
+            <button id="calNext" type="button" class="cal-nav" aria-label="Next month">&rarr;</button>
+          </div>
+          <div class="cal-weekdays" aria-hidden="true">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+          <div id="calGrid" class="cal-grid"></div>
+        </div>
+
+        <div class="todo-main">
+          <form id="todoForm" class="todo-form">
+            <label for="todoText" class="todo-selected-date">
+              Selected: <span id="todoDateLabel">Today</span>
+            </label>
+
+            <div class="todo-pickers">
+              <div class="picker-group">
+                <span class="picker-label">Priority</span>
+                <div class="priority-options" role="radiogroup" aria-label="Priority">
+                  <button type="button" class="pri-btn is-low" data-pri="low">Low</button>
+                  <button type="button" class="pri-btn is-med is-active" data-pri="med">Medium</button>
+                  <button type="button" class="pri-btn is-high" data-pri="high">High</button>
+                </div>
+              </div>
+
+              <div class="picker-group">
+                <span class="picker-label">Emoji</span>
+                <div class="emoji-options" role="radiogroup" aria-label="Emoji">
+                  <button type="button" class="emoji-btn is-active" data-emoji="" aria-label="No emoji">&times;</button>
+                  <button type="button" class="emoji-btn" data-emoji="💡" aria-label="Idea">💡</button>
+                  <button type="button" class="emoji-btn" data-emoji="☕" aria-label="Coffee">☕</button>
+                  <button type="button" class="emoji-btn" data-emoji="📝" aria-label="Note">📝</button>
+                  <button type="button" class="emoji-btn" data-emoji="🏃" aria-label="Exercise">🏃</button>
+                  <button type="button" class="emoji-btn" data-emoji="📞" aria-label="Call">📞</button>
+                  <button type="button" class="emoji-btn" data-emoji="🛒" aria-label="Errand">🛒</button>
+                  <button type="button" class="emoji-btn" data-emoji="💻" aria-label="Work">💻</button>
+                  <button type="button" class="emoji-btn" data-emoji="🎯" aria-label="Goal">🎯</button>
+                  <button type="button" class="emoji-btn" data-emoji="❤️" aria-label="Health">❤️</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="todo-input-row">
+              <input id="todoText" type="text" placeholder="What needs doing?" required maxlength="140" autocomplete="off" />
+              <button type="submit" class="btn">Add</button>
+            </div>
+          </form>
+
+          <p id="todoCount" class="todo-count" aria-live="polite"></p>
+          <p id="todoError" class="todo-error" role="alert" style="display:none;"></p>
+
+          <ul id="todoList" class="todo-list" aria-label="Task list"></ul>
+          <p id="todoEmpty" class="todo-empty">No tasks yet. Pick a date and add one above.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Footer ===== -->
+  <footer class="footer">
+    <div class="container">
+      <p class="footer-meta">&copy; 2026 Bowen Zhang. Built with warmth and rounded corners.</p>
+    </div>
+  </footer>
+
+  <script>
+    function toggleNav() {
+      document.getElementById('navLinks').classList.toggle('open');
+    }
+  </script>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ====== State ======
+      var SUPABASE_URL = 'https://iavwxzinglbvgaxwltva.supabase.co';
+      var SUPABASE_KEY = 'sb_publishable_1_B-ug3oD23h1BiB0S58NA_cEtwEv0q';
+      var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      var TABLE = 'todos';
+      var tasks = [];
+      var viewYear = new Date().getFullYear();
+      var viewMonth = new Date().getMonth(); // 0-based
+      var selectedKey = toKey(new Date()); // YYYY-MM-DD
+      var selectedPriority = 'med'; // 'low' | 'med' | 'high'
+      var selectedEmoji = ''; // '' or a single emoji
+
+      var PRIORITY_LABELS = { low: 'Low', med: 'Medium', high: 'High' };
+
+      // ====== Elements ======
+      var calGrid = document.getElementById('calGrid');
+      var calMonth = document.getElementById('calMonth');
+      var calPrev = document.getElementById('calPrev');
+      var calNext = document.getElementById('calNext');
+      var todoForm = document.getElementById('todoForm');
+      var todoText = document.getElementById('todoText');
+      var todoDateLabel = document.getElementById('todoDateLabel');
+      var todoList = document.getElementById('todoList');
+      var todoEmpty = document.getElementById('todoEmpty');
+      var todoCount = document.getElementById('todoCount');
+      var todoError = document.getElementById('todoError');
+      var priButtons = document.querySelectorAll('.pri-btn');
+      var emojiButtons = document.querySelectorAll('.emoji-btn');
+
+      // ====== Date helpers (local time, no TZ drift) ======
+      function toKey(d) {
+        var y = d.getFullYear();
+        var m = ('0' + (d.getMonth() + 1)).slice(-2);
+        var day = ('0' + d.getDate()).slice(-2);
+        return y + '-' + m + '-' + day;
+      }
+      function keyToDate(key) {
+        var parts = key.split('-').map(Number);
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      }
+      function prettyDate(key) {
+        var d = keyToDate(key);
+        var today = new Date(); today.setHours(0,0,0,0);
+        var diff = Math.round((d - today) / 86400000);
+        if (diff === 0) return 'Today';
+        if (diff === 1) return 'Tomorrow';
+        if (diff === -1) return 'Yesterday';
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      function isSameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+
+      // ====== Error display ======
+      var errorTimer = null;
+      function showError(msg) {
+        todoError.textContent = msg;
+        todoError.style.display = '';
+        if (errorTimer) clearTimeout(errorTimer);
+        errorTimer = setTimeout(function () { todoError.style.display = 'none'; }, 4000);
+      }
+
+      // ====== Supabase data layer ======
+      function mapRow(row) {
+        if (!row) return null;
+        return {
+          id: row.id,
+          text: row.text,
+          date: row.date, // date column comes back as YYYY-MM-DD string
+          priority: row.priority || 'med',
+          emoji: row.emoji || '',
+          done: !!row.done,
+          createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+        };
+      }
+
+      async function fetchTasks() {
+        var res = await supabase.from(TABLE).select('*').order('created_at', { ascending: true });
+        if (res.error) throw res.error;
+        return (res.data || []).map(mapRow);
+      }
+
+      async function insertTask(task) {
+        var res = await supabase.from(TABLE).insert({
+          text: task.text,
+          date: task.date,
+          priority: task.priority,
+          emoji: task.emoji,
+          done: task.done
+        }).select().single();
+        if (res.error) throw res.error;
+        return mapRow(res.data);
+      }
+
+      async function updateTask(id, patch) {
+        var res = await supabase.from(TABLE).update(patch).eq('id', id).select().single();
+        if (res.error) throw res.error;
+        return mapRow(res.data);
+      }
+
+      async function deleteTask(id) {
+        var res = await supabase.from(TABLE).delete().eq('id', id);
+        if (res.error) throw res.error;
+      }
+
+      // ====== Calendar render ======
+      function renderCalendar() {
+        var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        calMonth.textContent = monthNames[viewMonth] + ' ' + viewYear;
+        calGrid.innerHTML = '';
+
+        var first = new Date(viewYear, viewMonth, 1);
+        var startDow = first.getDay(); // 0=Sun
+        var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+        var today = new Date();
+
+        // Leading blanks
+        for (var i = 0; i < startDow; i++) {
+          var blank = document.createElement('button');
+          blank.type = 'button';
+          blank.className = 'cal-cell cal-blank';
+          blank.tabIndex = -1;
+          blank.disabled = true;
+          calGrid.appendChild(blank);
+        }
+
+        for (var d = 1; d <= daysInMonth; d++) {
+          var cellDate = new Date(viewYear, viewMonth, d);
+          var key = toKey(cellDate);
+          var cell = document.createElement('button');
+          cell.type = 'button';
+          cell.className = 'cal-cell';
+          cell.textContent = d;
+          cell.dataset.key = key;
+          if (isSameDay(cellDate, today)) cell.classList.add('is-today');
+          if (key === selectedKey) cell.classList.add('is-selected');
+          if (tasks.some(function (t) { return t.date === key; })) cell.classList.add('has-tasks');
+          cell.addEventListener('click', function (e) {
+            selectedKey = e.currentTarget.dataset.key;
+            renderCalendar();
+            renderForm();
+          });
+          calGrid.appendChild(cell);
+        }
+      }
+
+      // ====== Form render ======
+      function renderForm() {
+        todoDateLabel.textContent = prettyDate(selectedKey);
+      }
+
+      // ====== Task list render ======
+      function renderList() {
+        todoList.innerHTML = '';
+        // Sort: by date ascending, then by creation
+        var sorted = tasks.slice().sort(function (a, b) {
+          if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+          return a.createdAt - b.createdAt;
+        });
+
+        // Counter: "X of Y tasks completed"
+        var done = tasks.filter(function (t) { return t.done; }).length;
+        var total = tasks.length;
+        if (total === 0) {
+          todoCount.style.display = 'none';
+        } else {
+          todoCount.style.display = '';
+          var noun = total === 1 ? 'task' : 'tasks';
+          todoCount.textContent = done + ' of ' + total + ' ' + noun + ' completed';
+        }
+
+        if (sorted.length === 0) {
+          todoEmpty.style.display = '';
+          todoList.style.display = 'none';
+          return;
+        }
+        todoEmpty.style.display = 'none';
+        todoList.style.display = '';
+
+        sorted.forEach(function (task) {
+          var li = document.createElement('li');
+          li.className = 'todo-item' + (task.done ? ' is-done' : '');
+
+          var check = document.createElement('input');
+          check.type = 'checkbox';
+          check.className = 'todo-check';
+          check.checked = task.done;
+          check.setAttribute('aria-label', 'Mark task as done');
+          check.addEventListener('change', function () {
+            var newDone = check.checked;
+            var prevDone = task.done;
+            task.done = newDone;
+            renderList();
+            updateTask(task.id, { done: newDone }).catch(function (err) {
+              task.done = prevDone;
+              renderList();
+              showError('Could not update task: ' + (err.message || err));
+            });
+          });
+
+          var main = document.createElement('div');
+          main.className = 'todo-content';
+          var metaRow = document.createElement('div');
+          metaRow.className = 'todo-meta';
+          var dateChip = document.createElement('span');
+          dateChip.className = 'todo-date';
+          dateChip.textContent = prettyDate(task.date);
+          metaRow.appendChild(dateChip);
+          var pri = task.priority || 'med';
+          var priBadge = document.createElement('span');
+          priBadge.className = 'todo-pri is-' + pri;
+          priBadge.textContent = PRIORITY_LABELS[pri];
+          metaRow.appendChild(priBadge);
+          main.appendChild(metaRow);
+          var textEl = document.createElement('span');
+          textEl.className = 'todo-text';
+          if (task.emoji) {
+            var emojiEl = document.createElement('span');
+            emojiEl.className = 'todo-emoji';
+            emojiEl.textContent = task.emoji;
+            textEl.appendChild(emojiEl);
+          }
+          var textNode = document.createElement('span');
+          textNode.className = 'todo-text-node';
+          textNode.textContent = task.text;
+          textNode.title = 'Click to edit';
+          textNode.addEventListener('click', function () {
+            startEdit(task, textNode);
+          });
+          textEl.appendChild(textNode);
+          main.appendChild(textEl);
+
+          var del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'todo-del';
+          del.setAttribute('aria-label', 'Delete task');
+          del.innerHTML = '&times;';
+          del.addEventListener('click', function () {
+            var removed = task;
+            var idx = tasks.findIndex(function (t) { return t.id === task.id; });
+            if (idx >= 0) tasks.splice(idx, 1);
+            renderList();
+            renderCalendar();
+            deleteTask(removed.id).catch(function (err) {
+              // Re-insert at the same position on failure
+              if (idx >= 0) tasks.splice(idx, 0, removed);
+              renderList();
+              renderCalendar();
+              showError('Could not delete task: ' + (err.message || err));
+            });
+          });
+
+          li.appendChild(check);
+          li.appendChild(main);
+          li.appendChild(del);
+          todoList.appendChild(li);
+        });
+      }
+
+      // ====== Inline edit ======
+      function startEdit(task, textSpan) {
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'todo-edit-input';
+        input.value = task.text;
+        input.maxLength = 140;
+        input.setAttribute('aria-label', 'Edit task');
+        textSpan.replaceWith(input);
+        input.focus();
+        input.select();
+
+        var finished = false;
+        var originalText = task.text;
+        function save() {
+          if (finished) return;
+          finished = true;
+          var newText = input.value.trim();
+          if (!newText) {
+            // Treat empty edit as cancel
+            renderList();
+            return;
+          }
+          if (newText === originalText) {
+            renderList();
+            return;
+          }
+          // Optimistic update
+          task.text = newText;
+          renderList();
+          updateTask(task.id, { text: newText }).catch(function (err) {
+            task.text = originalText;
+            renderList();
+            showError('Could not save edit: ' + (err.message || err));
+          });
+        }
+        function cancel() {
+          if (finished) return;
+          finished = true;
+          renderList();
+        }
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); save(); }
+          else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+        });
+        input.addEventListener('blur', save);
+      }
+
+      // ====== Add task ======
+      todoForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var text = todoText.value.trim();
+        if (!text) return;
+        // Optimistic temp task with negative-id placeholder
+        var tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        var tempTask = {
+          id: tempId,
+          text: text,
+          date: selectedKey,
+          priority: selectedPriority,
+          emoji: selectedEmoji,
+          done: false,
+          createdAt: Date.now()
+        };
+        tasks.push(tempTask);
+        todoText.value = '';
+        // Reset pickers to defaults after adding
+        setSelectedPriority('med');
+        setSelectedEmoji('');
+        renderList();
+        renderCalendar();
+
+        insertTask(tempTask).then(function (saved) {
+          // Replace the temp task with the DB-returned row (real id)
+          var idx = tasks.findIndex(function (t) { return t.id === tempId; });
+          if (idx >= 0) tasks[idx] = saved;
+          renderList();
+          renderCalendar();
+        }).catch(function (err) {
+          // Remove temp task on failure
+          tasks = tasks.filter(function (t) { return t.id !== tempId; });
+          renderList();
+          renderCalendar();
+          showError('Could not save task: ' + (err.message || err));
+        });
+      });
+
+      // ====== Pickers ======
+      function setSelectedPriority(pri) {
+        selectedPriority = pri;
+        priButtons.forEach(function (b) {
+          b.classList.toggle('is-active', b.dataset.pri === pri);
+        });
+      }
+      function setSelectedEmoji(emoji) {
+        selectedEmoji = emoji;
+        emojiButtons.forEach(function (b) {
+          b.classList.toggle('is-active', b.dataset.emoji === emoji);
+        });
+      }
+      priButtons.forEach(function (b) {
+        b.addEventListener('click', function () { setSelectedPriority(b.dataset.pri); });
+      });
+      emojiButtons.forEach(function (b) {
+        b.addEventListener('click', function () { setSelectedEmoji(b.dataset.emoji); });
+      });
+
+      // ====== Calendar nav ======
+      calPrev.addEventListener('click', function () {
+        viewMonth--;
+        if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+        renderCalendar();
+      });
+      calNext.addEventListener('click', function () {
+        viewMonth++;
+        if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+        renderCalendar();
+      });
+
+      // ====== Init ======
+      renderCalendar();
+      renderForm();
+      renderList(); // renders empty state while loading
+      fetchTasks().then(function (loaded) {
+        tasks = loaded;
+        renderList();
+        renderCalendar();
+      }).catch(function (err) {
+        showError('Could not load tasks: ' + (err.message || err));
+      });
+    })();
+  </script>
+</body>
+</html>
